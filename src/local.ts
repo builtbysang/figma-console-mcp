@@ -59,6 +59,7 @@ import { registerTokenBrowserApp } from "./apps/token-browser/server.js";
 import { registerDesignSystemDashboardApp } from "./apps/design-system-dashboard/server.js";
 import { registerFigJamTools } from "./core/figjam-tools.js";
 import { registerSlidesTools } from "./core/slides-tools.js";
+import { getAccountToken } from "./core/account-secrets.js";
 
 const logger = createChildLogger({ component: "local-server" });
 
@@ -123,6 +124,10 @@ class LocalFigmaConsoleMCP {
 	private figmaAPI: FigmaAPI | null = null;
 	private figmaAccessTokenOverride: string | null = null;
 	private figmaAccessTokenSource: "env" | "plugin" = "env";
+	private initialEnvFigmaAccessToken: string | null =
+		process.env.FIGMA_ACCESS_TOKEN && process.env.FIGMA_ACCESS_TOKEN.trim()
+			? process.env.FIGMA_ACCESS_TOKEN.trim()
+			: null;
 	private desktopConnector: IFigmaConnector | null = null;
 	private wsServer: FigmaWebSocketServer | null = null;
 	private wsStartupError: { code: string; port: number } | null = null;
@@ -167,8 +172,10 @@ class LocalFigmaConsoleMCP {
 			const activeAccountId = parsed?.activeAccountId || null;
 			const activeAccount =
 				accounts.find((account: any) => account && account.id === activeAccountId) || accounts[0];
-			const token =
+			const tokenFromKeychain = activeAccount?.id ? getAccountToken(String(activeAccount.id)) : null;
+			const tokenFromLegacy =
 				activeAccount && activeAccount.token ? String(activeAccount.token).trim() : null;
+			const token = tokenFromKeychain || tokenFromLegacy || null;
 
 			if (token) {
 				this.setFigmaAccessTokenOverride(token, {
@@ -288,12 +295,20 @@ If Design Systems Assistant MCP is not available, install it from: https://githu
 
 		this.figmaAccessTokenOverride = normalizedToken;
 		this.figmaAccessTokenSource = nextSource;
+		if (normalizedToken) {
+			process.env.FIGMA_ACCESS_TOKEN = normalizedToken;
+		} else if (this.initialEnvFigmaAccessToken) {
+			process.env.FIGMA_ACCESS_TOKEN = this.initialEnvFigmaAccessToken;
+		} else {
+			delete process.env.FIGMA_ACCESS_TOKEN;
+		}
 		this.figmaAPI = null;
 
 		logger.info(
 			{
 				source: this.figmaAccessTokenSource,
 				hasOverride: !!normalizedToken,
+				runtimeEnvSynced: !!process.env.FIGMA_ACCESS_TOKEN,
 				email: meta?.email || null,
 				fileKey: meta?.fileKey || null,
 			},
@@ -6594,13 +6609,10 @@ return {
 					}
 				});
 
-				this.wsServer.on("pluginMessage", (message: any) => {
-					if (!message || message.type !== "ACCOUNT_SWITCH") return;
-
-					const data = message.data || {};
-					this.setFigmaAccessTokenOverride(data.token || null, {
-						email: data.email || null,
-						fileKey: data.fileKey || null,
+				this.wsServer.on("activeAccountChanged", (data: any) => {
+					this.setFigmaAccessTokenOverride(data?.token || null, {
+						email: data?.email || null,
+						fileKey: data?.fileKey || null,
 					});
 				});
 			}
