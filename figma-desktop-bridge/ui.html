@@ -978,7 +978,7 @@
       </div>
 
       <div class="action-row" id="bridge-copy-row">
-        <button class="ghost-button" id="copy-link-btn" onclick="copyCurrentLink()" disabled><span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘F</span></button>
+        <button class="ghost-button" id="copy-link-btn" onclick="copyCurrentLink()" disabled><span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘L</span></button>
       </div>
       <div class="copy-feedback" id="copy-feedback"></div>
       </div>
@@ -1107,7 +1107,7 @@
 
     function setCopyButtonIdleLabel(copyBtn) {
       if (!copyBtn) return;
-      copyBtn.innerHTML = '<span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘F</span>';
+      copyBtn.innerHTML = '<span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘L</span>';
     }
 
     function updateCopyButtonState(hasError) {
