@@ -713,27 +713,11 @@
     }
 
     .figma-panel .main-view.hidden-view,
-    .figma-panel .settings-view.hidden-view,
-    .figma-panel .new-account-view.hidden-view {
+    .figma-panel .settings-view.hidden-view {
       display: none !important;
     }
 
-    .figma-panel .section-action.settings-trigger {
-      cursor: pointer;
-    }
-
-    .figma-panel .section-action.settings-trigger:hover {
-      background: #454545;
-      opacity: 1;
-    }
-
     .figma-panel .settings-view {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }
-
-    .figma-panel .new-account-view {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -766,14 +750,6 @@
       line-height: 13px;
       font-weight: 500;
       padding-top: 1px;
-    }
-
-    .figma-panel .settings-breadcrumb-muted {
-      color: rgba(255, 255, 255, 0.5);
-    }
-
-    .figma-panel .settings-breadcrumb-current {
-      color: #ffffff;
     }
 
     .figma-panel .settings-back-icon {
@@ -821,70 +797,6 @@
       color: rgba(255, 255, 255, 0.5);
       font-size: 11px;
       line-height: 13px;
-    }
-
-    .figma-panel .main-empty-form {
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-      padding: 0 16px;
-      width: 100%;
-    }
-
-    .figma-panel .main-empty-form.visible {
-      display: flex;
-    }
-
-    .figma-panel .new-account-form {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 0 16px 16px;
-      width: 100%;
-    }
-
-    .figma-panel .settings-select-wrap {
-      position: relative;
-      width: 208px;
-    }
-
-    .figma-panel .settings-select {
-      width: 208px;
-      height: 24px;
-      border: none;
-      border-radius: 6px;
-      background: #383838;
-      color: rgba(255, 255, 255, 0.5);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
-      font-size: 11px;
-      line-height: 14px;
-      padding: 5px 24px 5px 8px;
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      outline: none;
-    }
-
-    .figma-panel .settings-select:focus {
-      box-shadow: 0 0 0 1px #4189e4;
-    }
-
-    .figma-panel .settings-select:disabled {
-      opacity: 1;
-    }
-
-    .figma-panel .settings-select-chevron {
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 8px;
-      height: 8px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: rgba(255, 255, 255, 0.5);
-      pointer-events: none;
     }
 
     .figma-panel .ghost-button.secondary {
@@ -1294,14 +1206,7 @@
       broadcastToAll({ type: 'GET_SHARED_ACCOUNT_SETTINGS' });
     }
 
-    function saveAccountSettings() {
-      // Option B: server is single source of truth — sync directly, no clientStorage
-      syncAccountSettingsToServers();
-      syncActiveAccountToServers();
-      return Promise.resolve({ settings: window.__accountSettings });
-    }
-
-    function renderBridgeContext() {
+function renderBridgeContext() {
       var selectionCount = window.__bridgeContext.selectionCount || 0;
       var selectionNodes = window.__bridgeContext.selectionNodes || [];
       var selectionLabel = 'Not select';
@@ -2122,7 +2027,6 @@
             if (message.type === 'SHARED_ACCOUNT_SETTINGS' && message.data) {
               if (message.data.settings && Array.isArray(message.data.settings.accounts) && message.data.settings.accounts.length) {
                 applyAccountSettings(message.data.settings);
-                window.sendPluginCommand('SAVE_ACCOUNT_SETTINGS', { settings: window.__accountSettings }).catch(function() {});
                 syncActiveAccountToServers();
               }
               return;
@@ -2626,12 +2530,7 @@
           applyAccountSettings(msg.settings);
           handleResult('GET_ACCOUNT_SETTINGS', 'settings');
           break;
-        case 'SAVE_ACCOUNT_SETTINGS_RESULT':
-          applyAccountSettings(msg.settings);
-          handleResult('SAVE_ACCOUNT_SETTINGS', 'settings');
-          break;
-
-        // Plugin UI reload
+// Plugin UI reload
         case 'RELOAD_UI_RESULT':
           handleResult('RELOAD_UI', null);
           break;
