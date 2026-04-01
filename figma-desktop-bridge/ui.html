@@ -889,8 +889,13 @@
         </div>
       </div>
 
-      <div class="action-row" id="bridge-copy-row">
-        <button class="ghost-button" id="copy-link-btn" onclick="copyCurrentLink()" disabled><span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘L</span></button>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="bridge-buttons-group">
+        <div class="action-row" id="bridge-copy-row">
+          <button class="ghost-button" id="copy-link-btn" onclick="copyCurrentLink()" disabled><span class="copy-link-label">Copy Link</span><span class="copy-link-shortcut">⌘L</span></button>
+        </div>
+        <div class="action-row" id="bridge-replace-row">
+          <button class="ghost-button secondary" id="replace-content-btn" onclick="copyReplaceContentPrompt()" disabled>Replace Content</button>
+        </div>
       </div>
       <div class="copy-feedback" id="copy-feedback"></div>
       </div>
@@ -1037,6 +1042,8 @@
         setCopyButtonIdleLabel(copyBtn);
       }
       copyBtn.disabled = isError || isBusy || !window.__bridgeContext.copyUrl;
+      var replaceBtn = document.getElementById('replace-content-btn');
+      if (replaceBtn) replaceBtn.disabled = isError || isBusy;
     }
 
     function getAccountInitials(name) {
@@ -1134,6 +1141,13 @@
         var nextCopyDisplay = hasAccounts ? '' : 'none';
         if (copyRow.style.display !== nextCopyDisplay) {
           copyRow.style.display = nextCopyDisplay;
+        }
+      }
+      var replaceRow = document.getElementById('bridge-replace-row');
+      if (replaceRow) {
+        var nextReplaceDisplay = hasAccounts ? '' : 'none';
+        if (replaceRow.style.display !== nextReplaceDisplay) {
+          replaceRow.style.display = nextReplaceDisplay;
         }
       }
     }
@@ -1291,6 +1305,56 @@ function renderBridgeContext() {
           feedbackEl.className = 'copy-feedback error';
         }
         requestResizeToContent();
+      }
+    }
+
+    async function copyReplaceContentPrompt() {
+      var feedbackEl = document.getElementById('copy-feedback');
+      var btn = document.getElementById('replace-content-btn');
+      var url = appendShareTokenIfAvailable(window.__bridgeContext.copyUrl);
+      var selectionEl = document.getElementById('selection-summary');
+      var selection = selectionEl ? selectionEl.textContent.trim() : '';
+      var selectionPart = (selection && selection !== 'Not select' && selection !== 'Nothing selected')
+        ? 'selection: ' + selection
+        : 'current selection';
+
+      var prompt = url
+        ? 'Implement the content shown in this screenshot into the Figma ' + selectionPart + '.\nFigma link: ' + url
+        : 'Implement the content shown in this screenshot into the Figma ' + selectionPart + '.';
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(prompt);
+        } else {
+          var tempInput = document.createElement('textarea');
+          tempInput.value = prompt;
+          tempInput.setAttribute('readonly', 'readonly');
+          tempInput.style.position = 'absolute';
+          tempInput.style.left = '-9999px';
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+        }
+        if (feedbackEl) {
+          feedbackEl.textContent = 'Prompt copied!';
+          feedbackEl.className = 'copy-feedback success';
+        }
+        if (btn) {
+          btn.classList.add('copied');
+          btn.textContent = 'Copied!';
+          setTimeout(function() {
+            btn.classList.remove('copied');
+            btn.textContent = 'Replace Content';
+            requestResizeToContent();
+          }, 1200);
+        }
+        requestResizeToContent();
+      } catch (error) {
+        if (feedbackEl) {
+          feedbackEl.textContent = 'Copy failed';
+          feedbackEl.className = 'copy-feedback error';
+        }
       }
     }
 
