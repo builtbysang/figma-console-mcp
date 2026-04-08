@@ -3218,6 +3218,13 @@ figma.ui.onmessage = async (msg) => {
   else if (msg.type === 'SAVE_ACCOUNT_SETTINGS') {
     try {
       var nextSettings = msg.settings || { accounts: [], activeAccountId: null };
+      var currentSettings = await figma.clientStorage.getAsync('accountSettings');
+      var currentAccounts = Array.isArray(currentSettings && currentSettings.accounts) ? currentSettings.accounts : [];
+      var nextAccounts = Array.isArray(nextSettings && nextSettings.accounts) ? nextSettings.accounts : [];
+      var allowEmptyOverwrite = msg.allowEmptyOverwrite === true;
+      if (!allowEmptyOverwrite && currentAccounts.length > 0 && nextAccounts.length === 0) {
+        nextSettings = currentSettings;
+      }
       await figma.clientStorage.setAsync('accountSettings', nextSettings);
       figma.ui.postMessage({
         type: 'SAVE_ACCOUNT_SETTINGS_RESULT',

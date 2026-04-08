@@ -210,6 +210,14 @@ export class FigmaWebSocketServer extends EventEmitter {
     });
   }
 
+  private shouldProtectFromEmptyAccountOverwrite(
+    current: SharedAccountSettings,
+    incoming: SharedAccountSettings,
+    allowEmptyOverwrite: boolean
+  ): boolean {
+    return !allowEmptyOverwrite && current.accounts.length > 0 && incoming.accounts.length === 0;
+  }
+
   private loadSharedAccountSettings(): SharedAccountSettings {
     try {
       if (!existsSync(this.sharedAccountSettingsPath)) {
@@ -494,11 +502,32 @@ export class FigmaWebSocketServer extends EventEmitter {
       }
 
       if (message.type === 'ACCOUNT_SETTINGS_SYNC') {
-        const settings = this.normalizeSharedAccountSettings(
+        const incoming = this.normalizeSharedAccountSettings(
           message.data?.settings || { accounts: [], activeAccountId: null }
         );
-        this.saveSharedAccountSettings(settings);
-        this.emitActiveAccountChanged(settings, 'ACCOUNT_SETTINGS_SYNC');
+        const current = this.loadSharedAccountSettings();
+        const allowEmptyOverwrite = message.data?.allowEmptyOverwrite === true;
+
+        if (this.shouldProtectFromEmptyAccountOverwrite(current, incoming, allowEmptyOverwrite)) {
+          logger.warn(
+            {
+              existingAccountCount: current.accounts.length,
+            },
+            'Ignored ACCOUNT_SETTINGS_SYNC with empty account list to protect shared settings'
+          );
+          try {
+            ws.send(JSON.stringify({
+              type: 'SHARED_ACCOUNT_SETTINGS',
+              data: { settings: current },
+            }));
+          } catch {
+            // Non-critical
+          }
+          return;
+        }
+
+        this.saveSharedAccountSettings(incoming);
+        this.emitActiveAccountChanged(incoming, 'ACCOUNT_SETTINGS_SYNC');
         return;
       }
 
@@ -510,7 +539,7 @@ export class FigmaWebSocketServer extends EventEmitter {
           if (exists) {
             current.activeAccountId = requestedAccountId;
           }
-        } else {
+        } else if (message.data?.clearActiveAccount === true) {
           current.activeAccountId = null;
         }
         this.saveSharedAccountSettings(current);
