@@ -1253,12 +1253,16 @@
       }));
     }
 
-    function syncAccountSettingsToConnection(connWs) {
+    function syncAccountSettingsToConnection(connWs, options) {
       if (!connWs || connWs.readyState !== 1) return;
+      var opts = options || {};
+      var settings = normalizeAccountSettings(window.__accountSettings);
+      if (!opts.allowEmptyOverwrite && !settings.accounts.length) return;
       connWs.send(JSON.stringify({
         type: 'ACCOUNT_SETTINGS_SYNC',
         data: {
-          settings: normalizeAccountSettings(window.__accountSettings)
+          settings: settings,
+          allowEmptyOverwrite: !!opts.allowEmptyOverwrite
         }
       }));
     }
@@ -1273,12 +1277,17 @@
       });
     }
 
-    function syncAccountSettingsToServers() {
+    function syncAccountSettingsToServers(options) {
       if (!wsConnected) return;
+      var opts = options || {};
       var settings = normalizeAccountSettings(window.__accountSettings);
+      if (!opts.allowEmptyOverwrite && !settings.accounts.length) return;
       broadcastToAll({
         type: 'ACCOUNT_SETTINGS_SYNC',
-        data: { settings: settings }
+        data: {
+          settings: settings,
+          allowEmptyOverwrite: !!opts.allowEmptyOverwrite
+        }
       });
     }
 
@@ -2121,8 +2130,12 @@
             }
 
             if (message.type === 'SHARED_ACCOUNT_SETTINGS' && message.data) {
-              if (message.data.settings && Array.isArray(message.data.settings.accounts) && message.data.settings.accounts.length) {
-                applyAccountSettings(message.data.settings);
+              if (message.data.settings) {
+                var sharedSettings = normalizeAccountSettings(message.data.settings);
+                var localSettings = normalizeAccountSettings(window.__accountSettings);
+                if (sharedSettings.accounts.length || !localSettings.accounts.length) {
+                  applyAccountSettings(sharedSettings);
+                }
                 window.sendPluginCommand('SAVE_ACCOUNT_SETTINGS', { settings: window.__accountSettings }).catch(function() {});
                 syncActiveAccountToServers();
               }
