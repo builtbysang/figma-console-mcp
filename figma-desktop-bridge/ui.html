@@ -1961,6 +1961,7 @@ function renderBridgeContext() {
       }
 
       requestSharedAccountSettings(connWs);
+      syncAccountSettingsToConnection(connWs); // push plugin's accounts to new server (no-op if empty)
       syncActiveAccountToConnection(connWs);
 
       // Proactively report file identity to this server
