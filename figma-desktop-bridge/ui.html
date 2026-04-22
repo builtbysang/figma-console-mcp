@@ -1981,6 +1981,34 @@ function renderBridgeContext() {
       var initialScanAttempts = 0;
       var MAX_INITIAL_SCANS = 3;
 
+      // Creates a WebSocket to a localhost port with timeout + shared onopen/onerror logic.
+      // Calls onConnected(ws) on successful open. Returns the ws or null on exception.
+      function tryConnectPort(port, timeoutMs, onConnected) {
+        try {
+          var testWs = new WebSocket('ws://localhost:' + port);
+          var timeout = setTimeout(function() {
+            if (testWs.readyState !== 1) testWs.close();
+          }, timeoutMs);
+
+          testWs.onopen = function() {
+            clearTimeout(timeout);
+            activeConnections.push({ port: port, ws: testWs });
+            updateCompatState();
+            attachWsHandlers(testWs, port);
+            initializeConnection(testWs, port);
+            if (onConnected) onConnected(testWs);
+          };
+
+          testWs.onerror = function() {
+            clearTimeout(timeout);
+          };
+
+          return testWs;
+        } catch (e) {
+          return null;
+        }
+      }
+
       function wsScanAndConnect() {
         if (isScanning) return;
         isScanning = true;
@@ -1998,54 +2026,35 @@ function renderBridgeContext() {
         var pending = portsToTry.length;
 
         portsToTry.forEach(function(port) {
-          try {
-            var testWs = new WebSocket('ws://localhost:' + port);
+          var testWs = tryConnectPort(port, 3000, function() {
+            foundAny = true;
+            console.log('[MCP Bridge] WebSocket connected to port ' + port + ' (' + activeConnections.length + ' server(s) total)');
+            pending--;
+            if (pending <= 0) {
+              isScanning = false;
+              wsReconnectDelay = 500;
+              wsReconnectAttempts = 0;
+            }
+          });
 
-            var timeout = setTimeout(function() {
-              if (testWs.readyState !== 1) testWs.close();
-            }, 3000);
+          if (!testWs) { pending--; return; }
 
-            testWs.onopen = function() {
-              clearTimeout(timeout);
-              foundAny = true;
-              activeConnections.push({ port: port, ws: testWs });
-              updateCompatState();
-              console.log('[MCP Bridge] WebSocket connected to port ' + port + ' (' + activeConnections.length + ' server(s) total)');
-              attachWsHandlers(testWs, port);
-              initializeConnection(testWs, port);
-              pending--;
-              if (pending <= 0) {
-                isScanning = false;
-                wsReconnectDelay = 500;
-                wsReconnectAttempts = 0;
-              }
-            };
-
-            testWs.onerror = function() {
-              clearTimeout(timeout);
-            };
-
-            testWs.onclose = function() {
-              clearTimeout(timeout);
-              pending--;
-              if (pending <= 0) {
-                isScanning = false;
-                // Retry with backoff if no servers found, up to MAX_INITIAL_SCANS
-                if (!foundAny && activeConnections.length === 0) {
-                  initialScanAttempts++;
-                  if (initialScanAttempts < MAX_INITIAL_SCANS) {
-                    var delay = 3000 * initialScanAttempts; // 3s, 6s
-                    console.log('[MCP Bridge] No servers found, retry ' + initialScanAttempts + '/' + MAX_INITIAL_SCANS + ' in ' + (delay/1000) + 's');
-                    setTimeout(wsScanAndConnect, delay);
-                  } else {
-                    console.log('[MCP Bridge] No MCP servers found after ' + MAX_INITIAL_SCANS + ' scans. Restart plugin to retry.');
-                  }
+          testWs.onclose = function() {
+            pending--;
+            if (pending <= 0) {
+              isScanning = false;
+              if (!foundAny && activeConnections.length === 0) {
+                initialScanAttempts++;
+                if (initialScanAttempts < MAX_INITIAL_SCANS) {
+                  var delay = 3000 * initialScanAttempts;
+                  console.log('[MCP Bridge] No servers found, retry ' + initialScanAttempts + '/' + MAX_INITIAL_SCANS + ' in ' + (delay/1000) + 's');
+                  setTimeout(wsScanAndConnect, delay);
+                } else {
+                  console.log('[MCP Bridge] No MCP servers found after ' + MAX_INITIAL_SCANS + ' scans. Restart plugin to retry.');
                 }
               }
-            };
-          } catch (e) {
-            pending--;
-          }
+            }
+          };
         });
       }
 
@@ -2055,27 +2064,9 @@ function renderBridgeContext() {
        * then does a full rescan to pick up any new servers.
        */
       function wsReconnectPort(port) {
-        try {
-          var testWs = new WebSocket('ws://localhost:' + port);
-          var timeout = setTimeout(function() {
-            if (testWs.readyState !== 1) testWs.close();
-          }, 2000);
-
-          testWs.onopen = function() {
-            clearTimeout(timeout);
-            activeConnections.push({ port: port, ws: testWs });
-            updateCompatState();
-            console.log('[MCP Bridge] Reconnected to port ' + port + ' (' + activeConnections.length + ' server(s) total)');
-            attachWsHandlers(testWs, port);
-            initializeConnection(testWs, port);
-          };
-
-          testWs.onerror = function() {
-            clearTimeout(timeout);
-          };
-        } catch (e) {
-          // Port gone — no further scanning to avoid console spam
-        }
+        tryConnectPort(port, 2000, function() {
+          console.log('[MCP Bridge] Reconnected to port ' + port + ' (' + activeConnections.length + ' server(s) total)');
+        });
       }
 
       /**
