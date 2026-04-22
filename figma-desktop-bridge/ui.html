@@ -320,6 +320,17 @@
       color: #f24822;
     }
 
+    .token-warning {
+      display: none;
+      font-size: 9px;
+      color: #f5a623;
+      padding: 2px 0 0;
+    }
+
+    .token-warning.visible {
+      display: block;
+    }
+
     /* Light theme support */
     @media (prefers-color-scheme: light) {
       body {
@@ -856,6 +867,7 @@
         <span class="label" id="file-name">File name</span>
       </div>
       <div class="active-account-email" id="active-account-email">No active account</div>
+      <p class="token-warning" id="token-warning">⚠ No token — commands will fail. Ask Claude to add a token.</p>
       <p class="account-switch-hint" id="account-switch-hint">To switch accounts, ask Claude or Codex, then reload the plugin.</p>
     </div>
 
@@ -1046,6 +1058,22 @@
       if (replaceBtn) replaceBtn.disabled = isError || isBusy;
     }
 
+    function setElementDisplay(element, show) {
+      if (!element) return;
+      var next = show ? '' : 'none';
+      if (element.style.display !== next) element.style.display = next;
+    }
+
+    function isConnectionActive(ws) {
+      return !!(ws && ws.readyState === 1);
+    }
+
+    function setCloudStatus(statusEl, text, cssClass) {
+      if (!statusEl) return;
+      statusEl.textContent = text;
+      statusEl.className = 'cloud-status' + (cssClass ? ' ' + cssClass : '');
+    }
+
     function getAccountInitials(name) {
       if (!name) return '?';
       var parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -1121,6 +1149,12 @@
         activeAccountEmail.textContent = activeAccount ? getAccountDisplayName(activeAccount) : 'No active account';
       }
 
+      var tokenWarning = document.getElementById('token-warning');
+      if (tokenWarning) {
+        var missingToken = activeAccount && !activeAccount.token;
+        tokenWarning.classList.toggle('visible', !!missingToken);
+      }
+
       updateMainAccountState();
       requestResizeToContent();
     }
@@ -1128,28 +1162,9 @@
     function updateMainAccountState() {
       var settings = normalizeAccountSettings(window.__accountSettings);
       var hasAccounts = settings.accounts.length > 0;
-      var selectionRow = document.getElementById('selection-row');
-      var copyRow = document.getElementById('bridge-copy-row');
-
-      if (selectionRow) {
-        var nextSelectionDisplay = hasAccounts ? '' : 'none';
-        if (selectionRow.style.display !== nextSelectionDisplay) {
-          selectionRow.style.display = nextSelectionDisplay;
-        }
-      }
-      if (copyRow) {
-        var nextCopyDisplay = hasAccounts ? '' : 'none';
-        if (copyRow.style.display !== nextCopyDisplay) {
-          copyRow.style.display = nextCopyDisplay;
-        }
-      }
-      var replaceRow = document.getElementById('bridge-replace-row');
-      if (replaceRow) {
-        var nextReplaceDisplay = hasAccounts ? '' : 'none';
-        if (replaceRow.style.display !== nextReplaceDisplay) {
-          replaceRow.style.display = nextReplaceDisplay;
-        }
-      }
+      setElementDisplay(document.getElementById('selection-row'), hasAccounts);
+      setElementDisplay(document.getElementById('bridge-copy-row'), hasAccounts);
+      setElementDisplay(document.getElementById('bridge-replace-row'), hasAccounts);
     }
 
     function toggleDesktopSection() {
@@ -1170,7 +1185,7 @@
     }
 
     function syncActiveAccountToConnection(connWs) {
-      if (!connWs || connWs.readyState !== 1) return;
+      if (!isConnectionActive(connWs)) return;
       var payload = getActiveAccountPayload();
       if (!payload || !payload.accountId) return;
       connWs.send(JSON.stringify({
@@ -1180,7 +1195,7 @@
     }
 
     function syncAccountSettingsToConnection(connWs, options) {
-      if (!connWs || connWs.readyState !== 1) return;
+      if (!isConnectionActive(connWs)) return;
       var opts = options || {};
       var settings = normalizeAccountSettings(window.__accountSettings);
       if (!opts.allowEmptyOverwrite && !settings.accounts.length) return;
@@ -1219,7 +1234,7 @@
 
     function requestSharedAccountSettings(connWs) {
       if (connWs) {
-        if (connWs.readyState === 1) {
+        if (isConnectionActive(connWs)) {
           connWs.send(JSON.stringify({ type: 'GET_SHARED_ACCOUNT_SETTINGS' }));
         }
         return;
@@ -2262,10 +2277,7 @@ function renderBridgeContext() {
     function resetCloudUI() {
       var statusEl = document.getElementById('cloud-status');
       var btn = document.getElementById('cloud-btn');
-      if (statusEl) {
-        statusEl.textContent = 'Disconnected';
-        statusEl.className = 'cloud-status';
-      }
+      setCloudStatus(statusEl, 'Disconnected', '');
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Connect';
@@ -2282,17 +2294,14 @@ function renderBridgeContext() {
       var code = (codeInput.value || '').trim().toUpperCase();
 
       if (!code || code.length < 4) {
-        statusEl.textContent = 'Enter pairing code';
-        statusEl.className = 'cloud-status error';
+        setCloudStatus(statusEl, 'Enter pairing code', 'error');
         requestResizeToContent();
         return;
       }
 
       if (btn) btn.disabled = true;
-      statusEl.textContent = 'Connecting...';
-      statusEl.className = 'cloud-status';
+      setCloudStatus(statusEl, 'Connecting...', '');
 
-      // Close existing cloud connection if any
       if (cloudWs && cloudWs.readyState <= 1) {
         cloudWs.close();
       }
@@ -2301,8 +2310,7 @@ function renderBridgeContext() {
         cloudWs = new WebSocket(CLOUD_RELAY_HOST + '/ws/pair?code=' + code);
 
         cloudWs.onopen = function() {
-          statusEl.textContent = 'Connected to cloud relay';
-          statusEl.className = 'cloud-status connected';
+          setCloudStatus(statusEl, 'Connected to cloud relay', 'connected');
           if (btn) {
             btn.disabled = false;
             btn.textContent = 'Disconnect';
@@ -2317,7 +2325,6 @@ function renderBridgeContext() {
             window.__wsAddCloudConnection(cloudWs, 'cloud', resetCloudUI);
           }
 
-          // Persist cloud config via code.js clientStorage
           parent.postMessage({ pluginMessage: {
             type: 'STORE_CLOUD_CONFIG',
             code: code
@@ -2325,8 +2332,7 @@ function renderBridgeContext() {
         };
 
         cloudWs.onerror = function() {
-          statusEl.textContent = 'Connection failed — check code';
-          statusEl.className = 'cloud-status error';
+          setCloudStatus(statusEl, 'Connection failed — check code', 'error');
           if (btn) btn.disabled = false;
           requestResizeToContent();
         };
@@ -2334,12 +2340,11 @@ function renderBridgeContext() {
         // Note: onclose here handles pre-connection close (e.g., bad code).
         // After onopen, attachWsHandlers overwrites this — resetCloudUI callback
         // handles post-connection close instead.
-        cloudWs.onclose = function(event) {
+        cloudWs.onclose = function() {
           resetCloudUI();
         };
       } catch (e) {
-        statusEl.textContent = 'Failed: ' + e.message;
-        statusEl.className = 'cloud-status error';
+        setCloudStatus(statusEl, 'Failed: ' + e.message, 'error');
         if (btn) btn.disabled = false;
         requestResizeToContent();
       }
