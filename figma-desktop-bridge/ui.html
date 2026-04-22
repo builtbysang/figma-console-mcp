@@ -1058,6 +1058,28 @@
       if (replaceBtn) replaceBtn.disabled = isError || isBusy;
     }
 
+    async function writeToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        var tempInput = document.createElement('textarea');
+        tempInput.value = text;
+        tempInput.setAttribute('readonly', 'readonly');
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+    }
+
+    function setFeedback(feedbackEl, text, type) {
+      if (!feedbackEl) return;
+      feedbackEl.textContent = text;
+      feedbackEl.className = 'copy-feedback' + (type ? ' ' + type : '');
+    }
+
     function setElementDisplay(element, show) {
       if (!element) return;
       var next = show ? '' : 'none';
@@ -1280,41 +1302,21 @@ function renderBridgeContext() {
       var url = appendShareTokenIfAvailable(window.__bridgeContext.copyUrl);
 
       if (!url) {
-        if (feedbackEl) {
-          feedbackEl.textContent = 'No file link available yet';
-          feedbackEl.className = 'copy-feedback error';
-        }
+        setFeedback(feedbackEl, 'No file link available yet', 'error');
         return;
       }
 
       try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(url);
-        } else {
-          var tempInput = document.createElement('textarea');
-          tempInput.value = url;
-          tempInput.setAttribute('readonly', 'readonly');
-          tempInput.style.position = 'absolute';
-          tempInput.style.left = '-9999px';
-          document.body.appendChild(tempInput);
-          tempInput.select();
-          document.execCommand('copy');
-          document.body.removeChild(tempInput);
-        }
-
-        if (feedbackEl) {
-          feedbackEl.textContent = 'Link copied to clipboard';
-          feedbackEl.className = 'copy-feedback success';
-        }
+        await writeToClipboard(url);
+        setFeedback(feedbackEl, 'Link copied to clipboard', 'success');
         window.sendPluginCommand('SHOW_COPY_TOAST', { message: 'Frame link copied to clipboard' }, 3000)
-          .catch(function() { /* non-blocking toast */ });
+          .catch(function() {});
         if (copyBtn) {
           copyBtn.classList.add('copied');
           copyBtn.textContent = 'Link copied!';
           setTimeout(function() {
             copyBtn.classList.remove('copied');
-            var isBusy = copyBtn.dataset.busy === 'true';
-            if (isBusy) {
+            if (copyBtn.dataset.busy === 'true') {
               copyBtn.textContent = 'Working...';
             } else {
               setCopyButtonIdleLabel(copyBtn);
@@ -1324,10 +1326,7 @@ function renderBridgeContext() {
         }
         requestResizeToContent();
       } catch (error) {
-        if (feedbackEl) {
-          feedbackEl.textContent = 'Copy failed';
-          feedbackEl.className = 'copy-feedback error';
-        }
+        setFeedback(feedbackEl, 'Copy failed', 'error');
         requestResizeToContent();
       }
     }
@@ -1347,23 +1346,8 @@ function renderBridgeContext() {
         : 'Implement the content shown in this screenshot into the Figma ' + selectionPart + '.';
 
       try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(prompt);
-        } else {
-          var tempInput = document.createElement('textarea');
-          tempInput.value = prompt;
-          tempInput.setAttribute('readonly', 'readonly');
-          tempInput.style.position = 'absolute';
-          tempInput.style.left = '-9999px';
-          document.body.appendChild(tempInput);
-          tempInput.select();
-          document.execCommand('copy');
-          document.body.removeChild(tempInput);
-        }
-        if (feedbackEl) {
-          feedbackEl.textContent = 'Prompt copied!';
-          feedbackEl.className = 'copy-feedback success';
-        }
+        await writeToClipboard(prompt);
+        setFeedback(feedbackEl, 'Prompt copied!', 'success');
         if (btn) {
           btn.classList.add('copied');
           btn.textContent = 'Copied!';
@@ -1375,10 +1359,7 @@ function renderBridgeContext() {
         }
         requestResizeToContent();
       } catch (error) {
-        if (feedbackEl) {
-          feedbackEl.textContent = 'Copy failed';
-          feedbackEl.className = 'copy-feedback error';
-        }
+        setFeedback(feedbackEl, 'Copy failed', 'error');
       }
     }
 
