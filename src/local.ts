@@ -65,7 +65,7 @@ const logger = createChildLogger({ component: "local-server" });
 
 /**
  * Resolve stable plugin directory.
- * Default: ~/Claude Code/repos/figma-workspace/runtime/plugin/ (figbox-managed)
+ * Default: ~/Claude Code/repos/figbox/runtime/plugin/ (figbox-managed)
  * Override via FIGMA_CONSOLE_STABLE_PLUGIN_DIR if needed.
  */
 function getStablePluginDir(): string {
@@ -73,7 +73,7 @@ function getStablePluginDir(): string {
 	if (customStableDir) {
 		return resolve(customStableDir);
 	}
-	return join(homedir(), "Claude Code", "repos", "figma-workspace", "runtime", "plugin");
+	return join(homedir(), "Claude Code", "repos", "figbox", "runtime", "plugin");
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -173,7 +173,7 @@ class LocalFigmaConsoleMCP {
 	private loadPersistedAccountOverride(): void {
 		try {
 			const sharedSettingsPath = (process.env.FIGMA_CONSOLE_ACCOUNTS_JSON || "").trim()
-				|| join(homedir(), "Claude Code", "repos", "figma-workspace", "runtime", "accounts.json");
+				|| join(homedir(), "Claude Code", "repos", "figbox", "runtime", "accounts.json");
 			if (!existsSync(sharedSettingsPath)) return;
 
 			const raw = readFileSync(sharedSettingsPath, "utf-8");
