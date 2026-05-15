@@ -65,7 +65,7 @@ const logger = createChildLogger({ component: "local-server" });
 
 /**
  * Resolve stable plugin directory.
- * Default: ~/Claude Code/figma-console-mcp/plugin/
+ * Default: ~/Claude Code/repos/figma-workspace/runtime/plugin/ (figbox-managed)
  * Override via FIGMA_CONSOLE_STABLE_PLUGIN_DIR if needed.
  */
 function getStablePluginDir(): string {
@@ -73,7 +73,7 @@ function getStablePluginDir(): string {
 	if (customStableDir) {
 		return resolve(customStableDir);
 	}
-	return join(homedir(), "Claude Code", "figma-console-mcp", "plugin");
+	return join(homedir(), "Claude Code", "repos", "figma-workspace", "runtime", "plugin");
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -172,7 +172,8 @@ class LocalFigmaConsoleMCP {
 
 	private loadPersistedAccountOverride(): void {
 		try {
-			const sharedSettingsPath = join(homedir(), "Claude Code", "figma-console-mcp", "accounts.json");
+			const sharedSettingsPath = (process.env.FIGMA_CONSOLE_ACCOUNTS_JSON || "").trim()
+				|| join(homedir(), "Claude Code", "repos", "figma-workspace", "runtime", "accounts.json");
 			if (!existsSync(sharedSettingsPath)) return;
 
 			const raw = readFileSync(sharedSettingsPath, "utf-8");
@@ -6465,8 +6466,9 @@ return {
 				"Starting Figma Console MCP (Local Mode)",
 			);
 
-			// Copy plugin files to stable directory (~/.figma-console-mcp/plugin/)
-			// so users have a permanent import path that survives npx cache changes.
+			// Copy plugin files to stable directory (~/Claude Code/figma-console-mcp/plugin/
+			// by default, or FIGMA_CONSOLE_STABLE_PLUGIN_DIR if set) so users have a
+			// permanent import path that survives npx cache changes.
 			try {
 				const thisFile = fileURLToPath(import.meta.url);
 				const packageRoot = dirname(dirname(thisFile));
