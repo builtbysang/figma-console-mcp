@@ -199,6 +199,7 @@
         <span class="state" id="status-state">connecting</span>
       </div>
     </div>
+    <div id="account-row" style="display:none; font-size:10px; color:var(--figma-color-text-secondary,rgba(255,255,255,0.5)); margin-top:4px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;" title=""></div>
 
     <div class="cloud-toggle" id="cloud-toggle" onclick="toggleCloudSection()">
       <span class="chevron">▶</span> Cloud Mode
@@ -1017,6 +1018,16 @@
               console.log('[MCP Bridge] Connected to server on port ' + message.data.port + ' (PID: ' + message.data.pid + ', v' + message.data.serverVersion + ')');
               var conn = activeConnections.find(function(c) { return c.ws === activeWs; });
               if (conn) conn.serverInfo = message.data;
+              // figbox: show active account email
+              var accountRow = document.getElementById('account-row');
+              if (accountRow) {
+                var email = message.data.activeAccountEmail;
+                if (email) {
+                  accountRow.textContent = '● ' + email;
+                  accountRow.title = email;
+                  accountRow.style.display = 'block';
+                }
+              }
               return;
             }
 

@@ -37,6 +37,8 @@ const logger = createChildLogger({ component: 'websocket-server' });
 export interface WebSocketServerOptions {
   port: number;
   host?: string;
+  /** figbox: active account email to show in plugin UI */
+  activeAccountEmail?: string;
 }
 
 interface PendingRequest {
@@ -274,6 +276,7 @@ export class FigmaWebSocketServer extends EventEmitter {
                 pid: process.pid,
                 serverVersion: SERVER_VERSION,
                 startedAt: this._startedAt,
+                activeAccountEmail: this.options.activeAccountEmail ?? null,
               },
             }));
           } catch {
