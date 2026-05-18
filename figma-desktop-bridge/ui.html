@@ -477,6 +477,7 @@
       </button>
       <button class="icon-btn" id="expand-btn" onclick="toggleSubToolbar()" title="Show options" aria-label="Show options" aria-expanded="false">+</button>
     </div>
+    <div id="account-row" style="display:none; font-size:10px; color:var(--figma-color-text-secondary,rgba(255,255,255,0.5)); margin-top:4px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;" title=""></div>
 
     <!-- Status meta — connection count + proof of life (shown when connected) -->
     <div class="status-meta" id="status-meta">
@@ -1469,6 +1470,15 @@
               if (conn) {
                 conn.serverInfo = message.data;
                 if (message.data.serverVersion) conn.serverVersion = message.data.serverVersion;
+              }
+              var accountRow = document.getElementById('account-row');
+              if (accountRow) {
+                var email = message.data.activeAccountEmail;
+                if (email) {
+                  accountRow.textContent = '● ' + email;
+                  accountRow.title = email;
+                  accountRow.style.display = 'block';
+                }
               }
               return;
             }

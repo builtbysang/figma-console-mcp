@@ -116,6 +116,8 @@ const logger = createChildLogger({ component: 'websocket-server' });
 export interface WebSocketServerOptions {
   port: number;
   host?: string;
+  /** figbox: active account email to show in plugin UI */
+  activeAccountEmail?: string;
   /**
    * Version of the plugin files shipped with this server, used for the
    * FILE_INFO version handshake. Defaults to the PLUGIN_VERSION parsed from
@@ -373,6 +375,7 @@ export class FigmaWebSocketServer extends EventEmitter {
                 pid: process.pid,
                 serverVersion: SERVER_VERSION,
                 startedAt: this._startedAt,
+                activeAccountEmail: this.options.activeAccountEmail,
               },
             }));
           } catch {

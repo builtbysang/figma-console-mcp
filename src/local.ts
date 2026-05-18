@@ -79,6 +79,20 @@ const logger = createChildLogger({ component: "local-server" });
  *
  * Returns the stable manifest path, or null if copy failed.
  */
+/** figbox: read active account email from accounts.json (non-critical) */
+function readActiveAccountEmail(): string | undefined {
+	try {
+		const path = (process.env.FIGMA_CONSOLE_ACCOUNTS_JSON || "").trim();
+		if (!path || !existsSync(path)) return undefined;
+		const data = JSON.parse(readFileSync(path, "utf-8"));
+		const activeId = data?.activeAccountId;
+		const account = data?.accounts?.find((a: { id: string; email: string }) => a.id === activeId);
+		return account?.email ?? undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function setupStablePluginDir(sourcePluginDir: string): string | null {
 	// figbox: if FIGMA_CONSOLE_STABLE_PLUGIN_DIR is set, use it directly (skip copy)
 	const envOverride = process.env.FIGMA_CONSOLE_STABLE_PLUGIN_DIR?.trim();
@@ -3822,7 +3836,7 @@ Without libraryFileKey/libraryFileUrl, searches the currently open file (local c
 
 			for (const port of portsToTry) {
 				try {
-					this.wsServer = new FigmaWebSocketServer({ port, host: wsHost });
+					this.wsServer = new FigmaWebSocketServer({ port, host: wsHost, activeAccountEmail: readActiveAccountEmail() });
 					await this.wsServer.start();
 
 					// Get the actual bound port (should match, but verify)
@@ -3883,7 +3897,7 @@ Without libraryFileKey/libraryFileUrl, searches the currently open file (local c
 			if (!boundPort && !lastNonPortError && evictOldestInstance(this.wsPreferredPort)) {
 				for (const port of portsToTry) {
 					try {
-						this.wsServer = new FigmaWebSocketServer({ port, host: wsHost });
+						this.wsServer = new FigmaWebSocketServer({ port, host: wsHost, activeAccountEmail: readActiveAccountEmail() });
 						await this.wsServer.start();
 						const addr = this.wsServer.address();
 						boundPort = addr?.port ?? port;
