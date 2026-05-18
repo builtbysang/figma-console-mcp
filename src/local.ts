@@ -73,6 +73,12 @@ const logger = createChildLogger({ component: "local-server" });
  * Returns the stable manifest path, or null if copy failed.
  */
 function setupStablePluginDir(sourcePluginDir: string): string | null {
+	// figbox: if FIGMA_CONSOLE_STABLE_PLUGIN_DIR is set, use it directly (skip copy)
+	const envOverride = process.env.FIGMA_CONSOLE_STABLE_PLUGIN_DIR?.trim();
+	if (envOverride) {
+		const manifestPath = join(envOverride, "manifest.json");
+		return existsSync(manifestPath) ? manifestPath : null;
+	}
 	try {
 		const stableDir = join(homedir(), ".figma-console-mcp", "plugin");
 		mkdirSync(stableDir, { recursive: true });
